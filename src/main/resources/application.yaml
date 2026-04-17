@@ -1,27 +1,27 @@
 server:
-  port: 8084
+  port: 8085
 
 spring:
   application:
     name: knowledge-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/knowledge_service_db
+    url: jdbc:postgresql://postgres-knowledge:5432/knowledge_db
     username: postgres
-    password: root
+    password: postgres
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: kafka:9092
     consumer:
       group-id: knowledge-service-group
       auto-offset-reset: earliest
@@ -34,8 +34,7 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 jwt:
-  secret: knowledge-service-jwt-secret-key-for-authentication-minimum-256-bits
-  expiration: 86400000
+  secret: myVerySecretKeyForJWTThatIsLongEnoughForHS512Signature
 
 logging:
   level:
