@@ -7,6 +7,12 @@ import com.cognizant.knowledge_service.mapper.ArticleMapper;
 import com.cognizant.knowledge_service.repository.KnowledgeArticleRepository;
 import com.cognizant.knowledge_service.repository.KnowledgeRatingRepository;
 import com.cognizant.knowledge_service.repository.KnowledgeViewRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +24,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/internal")
 @RequiredArgsConstructor
+@Tag(name = "Knowledge (Internal)", description = "Service-to-service article lookups")
 public class InternalController {
 
     private final KnowledgeArticleRepository articleRepository;
@@ -26,8 +33,13 @@ public class InternalController {
     private final ArticleMapper articleMapper;
 
     @GetMapping("/tickets/{ticketId}/knowledge")
+    @Operation(summary = "Get articles linked to a ticket", description = "Returns KB articles associated with a ticket")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Articles returned"),
+            @ApiResponse(responseCode = "404", description = "Ticket not found")
+    })
     public ResponseEntity<ApiResponseDTO<List<ArticleResponseDTO>>> getArticlesByTicketId(
-            @PathVariable UUID ticketId) {
+            @Parameter(description = "Ticket UUID") @PathVariable UUID ticketId) {
         List<KnowledgeArticle> articles = articleRepository.findByTicketIdAndDeletedFalse(ticketId);
         List<ArticleResponseDTO> response = articles.stream()
                 .map(article -> enrichArticleResponse(articleMapper.toResponseDTO(article), article.getArticleId()))
@@ -36,8 +48,13 @@ public class InternalController {
     }
 
     @GetMapping("/solutions/{solutionId}/knowledge")
+    @Operation(summary = "Get articles linked to a solution", description = "Returns KB articles associated with a solution")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Articles returned"),
+            @ApiResponse(responseCode = "404", description = "Solution not found")
+    })
     public ResponseEntity<ApiResponseDTO<List<ArticleResponseDTO>>> getArticlesBySolutionId(
-            @PathVariable UUID solutionId) {
+            @Parameter(description = "Solution UUID") @PathVariable UUID solutionId) {
         List<KnowledgeArticle> articles = articleRepository.findBySolutionIdAndDeletedFalse(solutionId);
         List<ArticleResponseDTO> response = articles.stream()
                 .map(article -> enrichArticleResponse(articleMapper.toResponseDTO(article), article.getArticleId()))

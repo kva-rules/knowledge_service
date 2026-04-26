@@ -26,7 +26,8 @@ public class KnowledgeEventConsumer {
         }
     }
 
-    @KafkaListener(topics = "solution.approved", groupId = "knowledge-service-group")
+    // Removed @KafkaListener — SolutionApprovedConsumer handles this topic using the
+    // common-library SolutionApprovedEvent type which matches what the solution service publishes.
     public void handleSolutionApproved(SolutionApprovedEvent event) {
         log.info("Received solution.approved event for solution: {}", event.getSolutionId());
         try {

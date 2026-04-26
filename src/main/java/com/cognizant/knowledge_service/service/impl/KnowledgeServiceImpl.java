@@ -133,7 +133,12 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     @Override
     public PageResponseDTO<ArticleResponseDTO> searchArticles(String keyword, UUID categoryId, String tag, ArticleStatus status, Pageable pageable) {
-        Page<KnowledgeArticle> articlesPage = articleRepository.searchArticles(keyword, categoryId, tag, status, pageable);
+        // The repository now uses a native query with explicit Postgres CASTs (to work
+        // around "could not determine data type of parameter" on null UUID/enum binds),
+        // so we pass status as its string name and let Postgres compare the enum column
+        // to a text literal. JPA's enum-to-string conversion is automatic for the column.
+        String statusName = status != null ? status.name() : null;
+        Page<KnowledgeArticle> articlesPage = articleRepository.searchArticles(keyword, categoryId, tag, statusName, pageable);
         return buildPageResponse(articlesPage);
     }
 

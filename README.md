@@ -1,193 +1,148 @@
 # Knowledge Service
 
-A Spring Boot microservice for managing knowledge articles, categories, tags, and ratings following clean architecture principles.
+Knowledge-base article microservice. Articles, tags, categories (hierarchical), ratings, and view tracking. Follows a clean-architecture split (controller → service → repository → entity). All endpoints require JWT; writes need `ENGINEER` / `MANAGER` / `ADMIN` roles.
 
-## Features
+---
 
-- **Article Management**: Create, update, publish, archive, and delete knowledge articles
-- **Versioning System**: Automatic version tracking for article changes
-- **Categories & Tags**: Organize articles with categories and tags
-- **Ratings & Views**: Track article ratings and view counts
-- **Full-text Search**: Search articles by keyword, category, tag, or status
-- **Kafka Integration**: Event-driven architecture with Kafka producers/consumers
-- **JWT Security**: Role-based access control (ADMIN, MANAGER, ENGINEER)
-- **Pagination**: Paginated list and search APIs
+## At a glance
+| | |
+|---|---|
+| **Port** | 8085 |
+| **Database** | postgres-knowledge (`knowledge_db`) |
+| **Kafka topics (out)** | `knowledge.created`, `knowledge.rated` |
+| **Kafka topics (in)** | `solution.approved` (auto-creates KB article) |
+| **Swagger UI (direct)** | http://localhost:8085/swagger-ui.html |
+| **Swagger UI (via gateway)** | http://localhost:8080/swagger-ui.html?urls.primaryName=knowledge-service |
+| **OpenAPI JSON** | http://localhost:8085/v3/api-docs |
+| **Java** | 21 (Temurin) |
+| **Spring Boot** | 3.2.0 |
 
-## Tech Stack
+---
 
-- **Java 17**
-- **Spring Boot 3.2.0**
-- **Spring Data JPA**
-- **PostgreSQL**
-- **Apache Kafka**
-- **Spring Security (JWT)**
-- **MapStruct**
-- **Lombok**
-- **JaCoCo** (80% minimum coverage)
+## What it does
+- **Articles**: CRUD + full-text search + view tracking (`POST /api/knowledge/{id}/view`)
+- **Categories**: hierarchical (parent/child) classification
+- **Tags**: many-to-many tagging
+- **Ratings**: one rating per user per article (1-5 stars)
+- **Internal**: reward-service looks up articles by author
 
-## Project Structure
+---
 
-```
-src/main/java/com/cognizant/knowledge_service/
-├── config/          # Configuration classes
-├── controller/      # REST controllers
-├── dto/
-│   ├── request/     # Request DTOs
-│   └── response/    # Response DTOs
-├── entity/          # JPA entities
-├── enums/           # Enumerations
-├── exception/       # Custom exceptions & handlers
-├── kafka/           # Kafka producers & consumers
-├── mapper/          # MapStruct mappers
-├── repository/      # JPA repositories
-├── security/        # JWT security components
-└── service/
-    └── impl/        # Service implementations
-```
+## API surface
 
-## API Endpoints
+### Articles (`/api/knowledge/**`)
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/knowledge` | JWT | Create article (+20 pts) |
+| GET | `/api/knowledge` | JWT | List / paginate |
+| GET | `/api/knowledge/search` | JWT | Full-text search |
+| GET | `/api/knowledge/{id}` | JWT | Fetch one article |
+| PUT | `/api/knowledge/{id}` | JWT | Update article |
+| DELETE | `/api/knowledge/{id}` | JWT + ADMIN | Delete |
+| POST | `/api/knowledge/{id}/view` | JWT | Increment view count |
+| GET | `/api/knowledge/by-author/{userId}` | JWT | Articles by one author |
+| GET | `/api/knowledge/statistics` | JWT | Aggregate counts |
 
-### Knowledge Articles
-| Method | Endpoint | Description | Roles |
-|--------|----------|-------------|-------|
-| POST | `/api/knowledge` | Create article | ADMIN, MANAGER |
-| GET | `/api/knowledge/{id}` | Get article by ID | All authenticated |
-| GET | `/api/knowledge` | Get all articles (paginated) | All authenticated |
-| GET | `/api/knowledge/search` | Search articles | All authenticated |
-| PUT | `/api/knowledge/{id}` | Update article | ADMIN, MANAGER |
-| DELETE | `/api/knowledge/{id}` | Delete article | ADMIN |
-| PUT | `/api/knowledge/{id}/publish` | Publish article | ADMIN, MANAGER |
-| PUT | `/api/knowledge/{id}/archive` | Archive article | ADMIN, MANAGER |
-| POST | `/api/knowledge/{id}/view` | Track view | All authenticated |
+### Tags (`/api/tags/**`)
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/tags` | JWT | Create tag |
+| GET | `/api/tags` | JWT | List tags |
+| GET | `/api/tags/{id}` | JWT | Fetch one tag |
+| DELETE | `/api/tags/{id}` | JWT + ADMIN | Delete |
 
-### Categories
-| Method | Endpoint | Description | Roles |
-|--------|----------|-------------|-------|
-| POST | `/api/categories` | Create category | ADMIN |
-| GET | `/api/categories/{id}` | Get category | All authenticated |
-| GET | `/api/categories` | Get all categories | All authenticated |
-| PUT | `/api/categories/{id}` | Update category | ADMIN |
-| DELETE | `/api/categories/{id}` | Delete category | ADMIN |
+### Categories (`/api/categories/**`)
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/categories` | JWT | Create category |
+| GET | `/api/categories` | JWT | List categories |
+| GET | `/api/categories/tree` | JWT | Full hierarchical tree |
+| GET | `/api/categories/{id}` | JWT | Fetch one category |
+| PUT | `/api/categories/{id}` | JWT | Update |
+| DELETE | `/api/categories/{id}` | JWT + ADMIN | Delete |
 
-### Tags
-| Method | Endpoint | Description | Roles |
-|--------|----------|-------------|-------|
-| POST | `/api/tags` | Create tag | ADMIN, MANAGER |
-| GET | `/api/tags/{id}` | Get tag | All authenticated |
-| GET | `/api/tags` | Get all tags | All authenticated |
-| DELETE | `/api/tags/{id}` | Delete tag | ADMIN |
+### Ratings (`/api/ratings/**`)
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/ratings` | JWT | Submit rating (+5 pts upvote) |
+| GET | `/api/ratings/by-article/{articleId}` | JWT | Ratings for an article |
+| PUT | `/api/ratings/{id}` | JWT | Update own rating |
+| DELETE | `/api/ratings/{id}` | JWT | Delete own rating |
 
-### Ratings
-| Method | Endpoint | Description | Roles |
-|--------|----------|-------------|-------|
-| POST | `/api/ratings` | Create/update rating | All authenticated |
-| GET | `/api/ratings/article/{id}` | Get ratings for article | All authenticated |
-| GET | `/api/ratings/article/{id}/average` | Get average rating | All authenticated |
-| DELETE | `/api/ratings/{id}` | Delete rating | Owner only |
+### Internal (`/internal/**`) — service-to-service
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/internal/knowledge/{id}` | Lookup by ID |
+| GET | `/internal/knowledge/by-author/{userId}` | Articles by author |
 
-### Internal APIs
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/internal/tickets/{id}/knowledge` | Get articles by ticket ID |
-| GET | `/internal/solutions/{id}/knowledge` | Get articles by solution ID |
+Live: **http://localhost:8085/swagger-ui.html**.
 
-## Kafka Events
+---
 
-### Produced Events
-- `knowledge.created` - When a new article is created
-- `knowledge.updated` - When an article is updated
-- `knowledge.published` - When an article is published
-- `knowledge.rated` - When an article is rated
+## Configuration
+| Env var | Yaml key | Default | Purpose |
+|---|---|---|---|
+| `SERVER_PORT` | `server.port` | `8085` | |
+| `SPRING_DATASOURCE_URL` | | `jdbc:postgresql://postgres-knowledge:5432/knowledge_db` | |
+| `SPRING_KAFKA_BOOTSTRAP_SERVERS` | | `kafka:9092` | |
+| `JWT_SECRET` | `jwt.secret` | (shared) | |
 
-### Consumed Events
-- `ticket.resolved` - Logs ticket resolution events
-- `solution.approved` - Auto-creates knowledge article from approved solution
+---
 
-## Getting Started
+## Kafka events consumed
+- **`solution.approved`** (from solution-service) → `SolutionApprovedConsumer` auto-creates a KB article
+  titled `"Solution for Ticket #<ticketId>"` with status PUBLISHED. This completes the
+  `solution.approved → knowledge article` chain verified by the e2e test suite.
 
-### Prerequisites
-- Java 17+
-- Maven 3.8+
-- PostgreSQL 15+
-- Apache Kafka
+## Kafka events produced
+- **`knowledge.created`** — on POST /api/knowledge (triggers reward +20 pts to author)
+- **`knowledge.rated`** — on rating submission (triggers reward +5 pts for upvotes)
 
-### Configuration
+---
 
-Update `application.yml` with your settings:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/knowledge_service_db
-    username: postgres
-    password: root
-  kafka:
-    bootstrap-servers: localhost:9092
-
-jwt:
-  secret: your-256-bit-secret-key
-  expiration: 86400000
-```
-
-### Running Locally
-
+## Build & run
 ```bash
-# Build the project
-mvn clean install
-
-# Run the application
-mvn spring-boot:run
+./services.sh start knowledge-service
 ```
 
-### Running with Docker
+## Docker / K8s
+- Manifest: `k8s/knowledge-service.yaml`
+- Service: `knowledge-service`
 
-```bash
-# Build and start all services
-docker-compose up -d
+---
 
-# Stop services
-docker-compose down
-```
+## Troubleshooting
 
-### Running Tests
+**Search returns empty even with matching articles**
+Full-text search relies on Postgres. Ensure columns are indexed (`tsvector`); optionally install the `pg_trgm` extension for fuzzier matching.
 
-```bash
-# Run all tests
-mvn test
+**Categories tree endpoint returns a flat list**
+The category seed data might have missing `parent_id`. Check `categories.parent_id IS NOT NULL` for the child rows.
 
-# Run tests with coverage report
-mvn test jacoco:report
+**`solution.approved` events not producing KB articles**
+Three things must align:
+1. Solution service `KafkaConfig.java` `genericProducerFactory` must have `ADD_TYPE_INFO_HEADERS = true`
+   so the `__TypeId__` header (`com.library.common.event.SolutionApprovedEvent`) is present.
+2. Knowledge service `application-local.yaml` must have `spring.json.use.type.headers: true` under
+   the consumer properties so the deserializer reads the header.
+3. Only `SolutionApprovedConsumer` should have `@KafkaListener` on `solution.approved`.
+   `KnowledgeEventConsumer.handleSolutionApproved` must NOT carry `@KafkaListener` — a competing
+   listener with a locally-defined (UUID-typed) `SolutionApprovedEvent` causes `ClassCastException`
+   and silently drops every message.
 
-# View coverage report at target/site/jacoco/index.html
-```
+**Kafka consumer crash-loops on `knowledge.created` topic**
+`KnowledgeEvent` is an internal type. The consumer factory bean in `KafkaConfig.java` must use
+`ErrorHandlingDeserializer` (wrapping `JsonDeserializer`) so a single unresolvable payload is logged
+and skipped rather than retried indefinitely.
 
-## Security
+---
 
-The service uses JWT tokens for authentication. Include the token in the `Authorization` header:
-
-```
-Authorization: Bearer <your-jwt-token>
-```
-
-Required headers:
-- `Authorization`: Bearer token
-- `X-User-Id`: UUID of the current user
-
-## Swagger Documentation
-
-Access the API documentation at:
-- Swagger UI: `http://localhost:8084/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8084/v3/api-docs`
-
-## CI/CD
-
-GitHub Actions workflow includes:
-1. **Build**: Compile and package the application
-2. **Test**: Run unit and integration tests
-3. **Coverage**: Generate JaCoCo coverage report (80% minimum)
-4. **Docker**: Build and push Docker image
-5. **Deploy**: Deploy to INT, UAT, and PROD environments
-
-## License
-
-Copyright © 2024 Cognizant. All rights reserved.
+## Tech stack
+- Java 21 (Temurin)
+- Spring Boot 3.2.0
+- Spring Security + JJWT
+- Spring Data JPA + PostgreSQL 16
+- Spring Kafka
+- springdoc-openapi 2.6.0
+- Lombok 1.18.34
+- `com.kva:common-library` 1.0.0

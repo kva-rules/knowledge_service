@@ -4,13 +4,11 @@ server:
 spring:
   application:
     name: knowledge-service
-
   datasource:
-    url: jdbc:postgresql://postgres-knowledge:5432/knowledge_db
+    url: jdbc:postgresql://localhost:5432/knowledge_db
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -19,50 +17,31 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: localhost:9092
     consumer:
       group-id: knowledge-service-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # ErrorHandlingDeserializer wraps the JSON deserializer so a single bad payload
+      # doesn't enter an infinite retry loop. We caught one of these blowing the log
+      # file to ~615 MB before truncation. The bad record is logged once and skipped;
+      # the listener stays healthy and can keep consuming the rest of the topic.
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
         spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 jwt:
   secret: myVerySecretKeyForJWTThatIsLongEnoughForHS512Signature
+  expiration: 3600000
 
 logging:
   level:
     root: INFO
     com.cognizant.knowledge_service: DEBUG
     org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-  file:
-    name: logs/knowledge-service.log
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
-
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
-    try-it-out-enabled: true
-    display-request-duration: true
