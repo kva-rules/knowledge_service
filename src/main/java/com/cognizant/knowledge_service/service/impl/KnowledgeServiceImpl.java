@@ -1,6 +1,7 @@
 package com.cognizant.knowledge_service.service.impl;
 
 import com.cognizant.knowledge_service.dto.request.ArticleRequestDTO;
+import java.util.Optional;
 import com.cognizant.knowledge_service.dto.response.ArticleResponseDTO;
 import com.cognizant.knowledge_service.dto.response.PageResponseDTO;
 import com.cognizant.knowledge_service.entity.KnowledgeArticle;
@@ -245,5 +246,12 @@ public class KnowledgeServiceImpl implements KnowledgeService {
                 .last(page.isLast())
                 .first(page.isFirst())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ArticleResponseDTO> getArticleBySolutionId(UUID solutionId) {
+        return articleRepository.findFirstBySolutionIdAndDeletedFalse(solutionId)
+                .map(articleMapper::toResponseDTO);
     }
 }

@@ -6,6 +6,7 @@ import com.cognizant.knowledge_service.dto.response.PageResponseDTO;
 import com.cognizant.knowledge_service.enums.ArticleStatus;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface KnowledgeService {
@@ -27,4 +28,6 @@ public interface KnowledgeService {
     void deleteArticle(UUID articleId, UUID deletedBy);
 
     ArticleResponseDTO createArticleFromSolution(UUID solutionId, String title, String content, UUID createdBy);
+
+    Optional<ArticleResponseDTO> getArticleBySolutionId(UUID solutionId);
 }

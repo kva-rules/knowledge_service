@@ -28,6 +28,10 @@ public interface KnowledgeArticleRepository extends JpaRepository<KnowledgeArtic
 
     List<KnowledgeArticle> findBySolutionIdAndDeletedFalse(UUID solutionId);
 
+    boolean existsBySolutionIdAndDeletedFalse(UUID solutionId);
+
+    Optional<KnowledgeArticle> findFirstBySolutionIdAndDeletedFalse(UUID solutionId);
+
     @Query("SELECT a FROM KnowledgeArticle a WHERE a.deleted = false AND " +
             "(LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(a.content) LIKE LOWER(CONCAT('%', :keyword, '%')))")

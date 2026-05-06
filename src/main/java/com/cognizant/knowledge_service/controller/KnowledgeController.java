@@ -181,4 +181,18 @@ public class KnowledgeController {
         viewService.trackView(articleId, userId);
         return ResponseEntity.ok(ApiResponseDTO.success("View tracked successfully", null));
     }
+
+    @GetMapping("/by-solution/{solutionId}")
+    @Operation(summary = "Get KB article by solution ID", description = "Finds the knowledge article auto-created from an approved solution")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Article found"),
+            @ApiResponse(responseCode = "404", description = "No article found for this solution")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponseDTO<ArticleResponseDTO>> getArticleBySolutionId(
+            @Parameter(description = "Solution UUID") @PathVariable UUID solutionId) {
+        return knowledgeService.getArticleBySolutionId(solutionId)
+                .map(article -> ResponseEntity.ok(ApiResponseDTO.success(article)))
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
