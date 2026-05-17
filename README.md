@@ -137,6 +137,25 @@ and skipped rather than retried indefinitely.
 
 ---
 
+## Kubernetes
+- Manifest: `k8s/knowledge-service.yaml` (part of `k8s/services.yaml`)
+- Namespace: `ticketing-system`
+- Service DNS (intra-cluster): `knowledge-service:8085`
+- Access via ingress: `http://ticketing.local/api/knowledge/**`
+
+```bash
+# View logs (shows Kafka consumer events — solution.approved → article auto-creation)
+./services.sh k8s-logs knowledge-service
+# or: kubectl logs -n ticketing-system deployment/knowledge-service -f
+
+# Restart the pod
+kubectl rollout restart deployment/knowledge-service -n ticketing-system
+```
+
+> After approving a solution in k8s mode, the auto-created knowledge article takes ~15–20 seconds to appear (same Kafka fan-out delay as local mode).
+
+---
+
 ## Tech stack
 - Java 21 (Temurin)
 - Spring Boot 3.2.0
